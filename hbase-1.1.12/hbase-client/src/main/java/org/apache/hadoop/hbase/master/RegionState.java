@@ -30,6 +30,8 @@ import org.apache.hadoop.hbase.protobuf.generated.ClusterStatusProtos;
  * State of a Region while undergoing transitions.
  * Region state cannot be modified except the stamp field.
  * So it is almost immutable.
+ * Region 状态转移的状态
+ * 除了stamp，Region的状态不能修改，因此几乎是不可修改的
  */
 @InterfaceAudience.Private
 public class RegionState {

@@ -1105,6 +1105,9 @@ class ConnectionManager {
       return locateRegion(TableName.valueOf(tableName), row);
     }
 
+
+    // tableName：表名
+    // row：待定位的row
     @Override
     public HRegionLocation relocateRegion(final TableName tableName,
         final byte [] row) throws IOException{
@@ -1114,16 +1117,22 @@ class ConnectionManager {
         locations.getRegionLocation(RegionReplicaUtil.DEFAULT_REPLICA_ID);
     }
 
+    // tableName: 表名
+    // row: 待定位的 row
+    // replicaId: 副本编号
     @Override
     public RegionLocations relocateRegion(final TableName tableName,
         final byte [] row, int replicaId) throws IOException{
       // Since this is an explicit request not to use any caching, finding
       // disabled tables should not be desirable.  This will ensure that an exception is thrown when
       // the first time a disabled table is interacted with.
+      // 既然这是一个明确不使用任何缓存的请求，如果发现表被禁用，这将是不可取的.
+      // 当我们第一时间发现表被禁用时，将抛出一个异常。 
       if (!tableName.equals(TableName.META_TABLE_NAME) && isTableDisabled(tableName)) {
         throw new TableNotEnabledException(tableName.getNameAsString() + " is disabled.");
       }
 
+      // 传入的 useCache 为false，retry 为 true，表明不使用缓存，并且进行重试
       return locateRegion(tableName, row, false, true, replicaId);
     }
 
@@ -1140,15 +1149,22 @@ class ConnectionManager {
       return locateRegion(tableName, row, useCache, retry, RegionReplicaUtil.DEFAULT_REPLICA_ID);
     }
 
+    // tableName: 表名
+    // row: 待定位的 row
+    // useCache: 是否使用缓存
+    // retry: 是否重试
+    // replicaId: 副本编号
     @Override
     public RegionLocations locateRegion(final TableName tableName,
       final byte [] row, boolean useCache, boolean retry, int replicaId)
     throws IOException {
+      // 判断连接是否关闭
       if (this.closed) throw new DoNotRetryIOException(toString() + " closed");
       if (tableName== null || tableName.getName().length == 0) {
         throw new IllegalArgumentException(
             "table name cannot be null or zero length");
       }
+      // 如果是 meta 表
       if (tableName.equals(TableName.META_TABLE_NAME)) {
         return locateMeta(tableName, useCache, replicaId);
       } else {
@@ -1156,12 +1172,17 @@ class ConnectionManager {
         return locateRegionInMeta(tableName, row, useCache, retry, replicaId);
       }
     }
-
+    
+    // tableName：meta 表的表名
+    // useCache: 是否用缓存
+    // replicaId: 缓存编号
     private RegionLocations locateMeta(final TableName tableName,
         boolean useCache, int replicaId) throws IOException {
       // HBASE-10785: We cache the location of the META itself, so that we are not overloading
       // zookeeper with one request for every region lookup. We cache the META with empty row
       // key in MetaCache.
+      // 对于 Meta 所在的位置我们也做了缓存，避免每次查找 region 的时候，都要请求 zk，导致 zk 过载。
+      // 在缓存中，Meta 的 key 为空行
       byte[] metaCacheKey = HConstants.EMPTY_START_ROW; // use byte[0] as the row for meta
       RegionLocations locations = null;
       if (useCache) {
@@ -1172,9 +1193,11 @@ class ConnectionManager {
       }
 
       // only one thread should do the lookup.
+      // 每次只有一个线程做查询
       synchronized (metaRegionLock) {
         // Check the cache again for a hit in case some other thread made the
         // same query while we were waiting on the lock.
+        // 每次都在缓存中查找一次，因为其它的线程可能发起过相同的查询了。
         if (useCache) {
           locations = getCachedLocation(tableName, metaCacheKey);
           if (locations != null && locations.getRegionLocation(replicaId) != null) {
@@ -1183,6 +1206,7 @@ class ConnectionManager {
         }
 
         // Look up from zookeeper
+        // 从 zk 上查找
         locations = this.registry.getMetaRegionLocation();
         if (locations != null) {
           cacheLocation(tableName, locations);
@@ -1194,12 +1218,19 @@ class ConnectionManager {
     /*
       * Search the hbase:meta table for the HRegionLocation
       * info that contains the table and row we're seeking.
+      * 从 hase:meta 表中查找包含我们需要的表和row的 Region 的 HRegionLocation 信息
+      * tableName: 表名
+      * row: 待查找的 row
+      * useCache: 是否使用缓存
+      * retry: 是否重试
+      * replicaId: 副本编号
       */
     private RegionLocations locateRegionInMeta(TableName tableName, byte[] row,
                    boolean useCache, boolean retry, int replicaId) throws IOException {
 
       // If we are supposed to be using the cache, look in the cache to see if
       // we already have the region.
+      // 如果使用缓存，首先在缓存中查找
       if (useCache) {
         RegionLocations locations = getCachedLocation(tableName, row);
         if (locations != null && locations.getRegionLocation(replicaId) != null) {
@@ -1207,13 +1238,16 @@ class ConnectionManager {
         }
       }
 
+      // 缓存中没有或不使用缓存
       // build the key of the meta region we should be looking for.
       // the extra 9's on the end are necessary to allow "exact" matches
       // without knowing the precise region names.
+      // Region的信息都是保持在 Meta 表中的，为了在meta表中查找，需要构造在 meta 表中查找的 key 
       byte[] metaKey = HRegionInfo.createRegionName(tableName, row, HConstants.NINES, false);
 
+      // 构造一个 small reversed scan，起始行为 metaKey
       Scan s = new Scan();
-      s.setReversed(true);
+      s.setReversed(true); 
       s.setStartRow(metaKey);
       s.setSmall(true);
       s.setCaching(1);
@@ -1221,14 +1255,17 @@ class ConnectionManager {
         s.setConsistency(Consistency.TIMELINE);
       }
 
+      // 确定重试次数
       int localNumRetries = (retry ? numTries : 1);
 
       for (int tries = 0; true; tries++) {
+        // 超过最大重试次数
         if (tries >= localNumRetries) {
           throw new NoServerForRegionException("Unable to find region for "
               + Bytes.toStringBinary(row) + " in " + tableName +
               " after " + localNumRetries + " tries.");
         }
+        // 如果使用缓存的话，每次再从缓存中取一遍
         if (useCache) {
           RegionLocations locations = getCachedLocation(tableName, row);
           if (locations != null && locations.getRegionLocation(replicaId) != null) {
@@ -1241,53 +1278,63 @@ class ConnectionManager {
         }
 
         // Query the meta region
+        // 查询 Meta 表
         try {
           Result regionInfoRow = null;
           ReversedClientScanner rcs = null;
           try {
             rcs = new ClientSmallReversedScanner(conf, s, TableName.META_TABLE_NAME, this,
               rpcCallerFactory, rpcControllerFactory, getMetaLookupPool(), 0);
-            regionInfoRow = rcs.next();
+              // 调用 Scannner 的 next 方法，获取唯一的结果 regionInfoRow
+	      regionInfoRow = rcs.next();
           } finally {
+  	    // 关闭 scanner 
             if (rcs != null) {
               rcs.close();
             }
           }
 
+	  // 未找到结果
           if (regionInfoRow == null) {
             throw new TableNotFoundException(tableName);
           }
 
           // convert the row result into the HRegionLocation we need!
+   	  // 将结果 regionInfoRow 转换为 HRegionLocation，如果为 null，或者我们需要的副本 replicaId 的为 null,
+	  // 抛异常
           RegionLocations locations = MetaTableAccessor.getRegionLocations(regionInfoRow);
           if (locations == null || locations.getRegionLocation(replicaId) == null) {
             throw new IOException("HRegionInfo was null in " +
               tableName + ", row=" + regionInfoRow);
           }
-          HRegionInfo regionInfo = locations.getRegionLocation(replicaId).getRegionInfo();
+          // 从 HRegionLocation 中提取需要的副本 replicaId 的 HRegionInfo
+	  HRegionInfo regionInfo = locations.getRegionLocation(replicaId).getRegionInfo();
           if (regionInfo == null) {
             throw new IOException("HRegionInfo was null or empty in " +
               TableName.META_TABLE_NAME + ", row=" + regionInfoRow);
           }
 
           // possible we got a region of a different table...
+  	  // 验证表名
           if (!regionInfo.getTable().equals(tableName)) {
             throw new TableNotFoundException(
                   "Table '" + tableName + "' was not found, got: " +
                   regionInfo.getTable() + ".");
           }
-          if (regionInfo.isSplit()) {
+          // 验证 Region 是否已分裂，需要等待分裂完成 
+	  if (regionInfo.isSplit()) {
             throw new RegionOfflineException("the only available region for" +
               " the required row is a split parent," +
               " the daughters should be online soon: " +
               regionInfo.getRegionNameAsString());
           }
+   	  // 验证 Region 是否已经下线 
           if (regionInfo.isOffline()) {
             throw new RegionOfflineException("the region is offline, could" +
               " be caused by a disable table call: " +
               regionInfo.getRegionNameAsString());
           }
-
+	  // 获取副本所在Region的Region Server地址
           ServerName serverName = locations.getRegionLocation(replicaId).getServerName();
           if (serverName == null) {
             throw new NoServerForRegionException("No server address listed " +
@@ -1295,13 +1342,14 @@ class ConnectionManager {
               regionInfo.getRegionNameAsString() + " containing row " +
               Bytes.toStringBinary(row));
           }
-
+          // 判断Server是否已经死亡
           if (isDeadServer(serverName)){
             throw new RegionServerStoppedException("hbase:meta says the region "+
                 regionInfo.getRegionNameAsString()+" is managed by the server " + serverName +
                 ", but it is dead.");
           }
           // Instantiate the location
+	  // 加入缓存
           cacheLocation(tableName, locations);
           return locations;
         } catch (TableNotFoundException e) {

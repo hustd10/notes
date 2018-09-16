@@ -59,6 +59,9 @@ import java.util.concurrent.TimeoutException;
  * timeout. If the timeout is reached, it calls all the secondary replicas, and returns
  * the first answer. If the answer comes from one of the secondary replica, it will
  * be marked as stale.
+ * 如果 primary region server 在指定的超时时间内没有恢复，则转向副本的region发送请求。
+ * primary region server超时后，向所有的副本发送请求，并返回第一个答复的。如果答复来自其中一个
+ * secondary 副本。
  */
 @InterfaceAudience.Private
 public class RpcRetryingCallerWithReadReplicas {
@@ -288,6 +291,11 @@ public class RpcRetryingCallerWithReadReplicas {
     }
   }
 
+  // 根据表名、副本号、行row来定位Region的位置
+  // useCache：是否使用本地缓存
+  // replicaId：副本编号
+  //
+  // row：所在行
   static RegionLocations getRegionLocations(boolean useCache, int replicaId,
                  ClusterConnection cConnection, TableName tableName, byte[] row)
       throws RetriesExhaustedException, DoNotRetryIOException, InterruptedIOException {

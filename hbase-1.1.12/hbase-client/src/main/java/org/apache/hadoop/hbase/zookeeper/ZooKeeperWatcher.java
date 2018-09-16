@@ -94,6 +94,7 @@ public class ZooKeeperWatcher implements Watcher, Abortable, Closeable {
   // base znode for this cluster
   public String baseZNode;
   //znodes containing the locations of the servers hosting the meta replicas
+  //保存meta表的副本的server 的位置
   private Map<Integer,String> metaReplicaZnodes = new HashMap<Integer, String>();
   // znode containing ephemeral nodes of the regionservers
   public String rsZNode;
@@ -468,6 +469,7 @@ public class ZooKeeperWatcher implements Watcher, Abortable, Closeable {
 
   /**
    * Get the znode string corresponding to a replicaId
+   * 获取制定 replicaId 对应的 Znode,  Meta的更新：https://github.com/XingCloud/HMitosis/wiki/hbase-meta 
    * @param replicaId
    * @return znode
    */

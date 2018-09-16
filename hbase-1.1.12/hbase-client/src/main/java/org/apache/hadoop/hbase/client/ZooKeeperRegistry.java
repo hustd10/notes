@@ -52,6 +52,7 @@ class ZooKeeperRegistry implements Registry {
 
   @Override
   public RegionLocations getMetaRegionLocation() throws IOException {
+    // 从 HConnectionImplementation 中获取 zkw 
     ZooKeeperKeepAliveConnection zkw = hci.getKeepAliveZooKeeperWatcher();
 
     try {

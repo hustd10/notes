@@ -27,6 +27,8 @@ import org.apache.hadoop.hbase.TableName;
  * Cluster registry.
  * Implementations hold cluster information such as this cluster's id, location of hbase:meta, etc.
  * Internal use only.
+ * 保存集群信息，例如 cluster id，hbase:meta 表的位置等等
+ * 仅供内部使用
  */
 @InterfaceAudience.Private
 interface Registry {

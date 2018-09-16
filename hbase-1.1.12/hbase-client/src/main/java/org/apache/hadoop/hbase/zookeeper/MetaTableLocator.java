@@ -66,7 +66,7 @@ import java.util.ArrayList;
 /**
  * Utility class to perform operation (get/wait for/verify/set/delete) on znode in ZooKeeper
  * which keeps hbase:meta region server location.
- *
+ * 工具类，封装 zk 上保存 hbase:meta 的 region server 位置的znode的操作
  * Stateless class with a bunch of static methods. Doesn't manage resources passed in
  * (e.g. HConnection, ZooKeeperWatcher etc).
  *
@@ -162,6 +162,7 @@ public class MetaTableLocator {
 
   /**
    * Gets the meta region location, if available.  Does not block.
+   * 获取meta region的位置
    * @param zkw
    * @param replicaId
    * @return server name
@@ -477,6 +478,7 @@ public class MetaTableLocator {
 
   /**
    * Load the meta region state from the meta server ZNode.
+   * 从 ZNode 加载 meta region state
    * @param zkw
    * @param replicaId
    * @return regionstate
@@ -558,6 +560,7 @@ public class MetaTableLocator {
           throws InterruptedException {
     int numReplicasConfigured = 1;
     try {
+      // 获取 Meta 的所有副本节点
       List<String> metaReplicaNodes = zkw.getMetaReplicaNodes();
       numReplicasConfigured = metaReplicaNodes.size();
     } catch (KeeperException e) {
