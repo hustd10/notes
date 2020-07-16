@@ -30,6 +30,8 @@ import org.apache.hadoop.hbase.procedure2.Procedure;
  * The ProcedureStore is used by the executor to persist the state of each procedure execution.
  * This allows to resume the execution of pending/in-progress procedures in case
  * of machine failure or service shutdown.
+ * ProcedureStore 被 Exector 用来持久化每个 Procedure 执行的状态。
+ * 这样当机器宕机或者服务挂掉时能够恢复未完成的 Procedure，继续执行。
  */
 @InterfaceAudience.Private
 @InterfaceStability.Evolving

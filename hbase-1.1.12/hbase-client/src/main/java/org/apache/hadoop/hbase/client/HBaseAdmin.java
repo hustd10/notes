@@ -586,6 +586,7 @@ public class HBaseAdmin implements Admin {
   /**
    * Creates a new table.
    * Synchronous operation.
+   * 同步接口
    *
    * @param desc table descriptor for table
    *
@@ -651,6 +652,8 @@ public class HBaseAdmin implements Admin {
    * specified split keys.  The total number of regions created will be the
    * number of split keys plus one. Synchronous operation.
    * Note : Avoid passing empty split key.
+   * 创建一个新的Table，包含初始的一些空Region，通过相应的 split key定义。
+   * 创建的 Region 总数将会是 split key 的数目加1。
    *
    * @param desc table descriptor for table
    * @param splitKeys array of split keys for the initial regions of the table
@@ -712,6 +715,9 @@ public class HBaseAdmin implements Admin {
    * It may throw ExecutionException if there was an error while executing the operation
    * or TimeoutException in case the wait timeout was not long enough to allow the
    * operation to complete.
+   * 创建一个新的 Table 但是不阻塞等待Table创建完成。
+   * 你可以使用 Future.get(long, TimeUnit)来等待操作。
+   * 如果执行过程中出错，可能会抛出 ExecutionException，或者等待超时，抛出 TimeoutException。
    *
    * @param desc table descriptor for table
    * @param splitKeys keys to check if the table has been created with all split keys

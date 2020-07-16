@@ -52,6 +52,8 @@ import org.apache.hadoop.hbase.zookeeper.MetaTableLocator;
  * This will be removed in the future (mainly when the AssignmentManager will be
  * replaced with a Procedure version) by using ProcedureYieldException,
  * and the queue will handle waiting and scheduling based on events.
+ * 同步等待条件的实用类
+ * 
  */
 @InterfaceAudience.Private
 @InterfaceStability.Evolving

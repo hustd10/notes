@@ -40,6 +40,7 @@ import com.google.common.collect.Lists;
  * A globally-barriered distributed procedure.  This class encapsulates state and methods for
  * tracking and managing a distributed procedure, as well as aborting if any member encounters
  * a problem or if a cancellation is requested.
+ * 分布式的 Procedure。包含一系列状态和方法来跟踪和管理分布式的 Procedure。
  * <p>
  * All procedures first attempt to reach a barrier point with the {@link #sendGlobalBarrierStart()}
  * method.  The procedure contacts all members and waits for all subprocedures to execute
@@ -239,6 +240,7 @@ public class Procedure implements Callable<Void>, ForeignExceptionListener {
   /**
    * Sends a message to Members to create a new {@link Subprocedure} for this Procedure and execute
    * the {@link Subprocedure#acquireBarrier} step.
+   * 发送消息通知参与者执行 acquireBarrier 步骤
    * @throws ForeignException
    */
   public void sendGlobalBarrierStart() throws ForeignException {

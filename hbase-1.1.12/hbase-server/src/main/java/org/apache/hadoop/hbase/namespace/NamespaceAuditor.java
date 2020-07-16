@@ -30,6 +30,7 @@ import com.google.common.annotations.VisibleForTesting;
  * The Class NamespaceAuditor performs checks to ensure operations like table creation and region
  * splitting preserve namespace quota. The namespace quota can be specified while namespace
  * creation.
+ * 保证创建table 和 region split 的时候满足 namespace 的quota设置。namespace 的quota 可以在 namespace 创建时指定。
  */
 @InterfaceAudience.Private
 public class NamespaceAuditor {

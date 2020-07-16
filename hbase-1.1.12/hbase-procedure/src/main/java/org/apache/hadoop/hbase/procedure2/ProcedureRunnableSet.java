@@ -29,12 +29,14 @@ import org.apache.hadoop.hbase.classification.InterfaceStability;
 public interface ProcedureRunnableSet {
   /**
    * Inserts the specified element at the front of this queue.
+   * 把一个 Procedure 添加到队首
    * @param proc the Procedure to add
    */
   void addFront(Procedure proc);
 
   /**
    * Inserts the specified element at the end of this queue.
+   * 把一个 Procedure 添加到对尾
    * @param proc the Procedure to add
    */
   void addBack(Procedure proc);
@@ -42,6 +44,8 @@ public interface ProcedureRunnableSet {
   /**
    * The procedure can't run at the moment.
    * add it back to the queue, giving priority to someone else.
+   * 该 Procedure 目前不能运行。
+   * 把它添加到队尾部，使得其他人优先运行
    * @param proc the Procedure to add back to the list
    */
   void yield(Procedure proc);

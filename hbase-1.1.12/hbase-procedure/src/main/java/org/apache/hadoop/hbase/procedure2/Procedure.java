@@ -50,17 +50,23 @@ import com.google.protobuf.ByteString;
  * execute() is called each time the procedure is executed.
  * it may be called multiple times in case of failure and restart, so the
  * code must be idempotent.
+ * procedure 每次执行时都会调用 execute 方法，由于重试和重启，可能会被调用多次
+ * 所以代码实现必须是幂等的
  * the return is a set of sub-procedures or null in case the procedure doesn't
  * have sub-procedures. Once the sub-procedures are successfully completed
  * the execute() method is called again, you should think at it as a stack:
  *  -> step 1
  *  ---> step 2
  *  -> step 1
+ * 返回值是一个 sub-procedure 集合，如果该 procedure 没有subprocedure，则返回 null，
+ * 一旦所有的 sub-procedure 全部执行成功，excute 会再次被调用，你应该把它当做一个栈
  *
  * rollback() is called when the procedure or one of the sub-procedures is failed.
  * the rollback step is supposed to cleanup the resources created during the
  * execute() step. in case of failure and restart rollback() may be called
  * multiple times, so the code must be idempotent.
+ * 当 procedure 或者其中一个 subprocedure 失败时，rollback会被调用，rollback的工作是清理在 executed
+ * 阶段创建的资源。一旦失败或者重启，rollback可能会被调用多次，所以实现必须是幂等的。
  */
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
@@ -87,6 +93,7 @@ public abstract class Procedure<TEnvironment> implements Comparable<Procedure> {
    * The main code of the procedure. It must be idempotent since execute()
    * may be called multiple time in case of machine failure in the middle
    * of the execution.
+   * Procedure 的主要实现。必须是幂等的，因为一旦procedure执行过程中机器宕机，execute可能会被调用多次。
    * @param env the environment passed to the ProcedureExecutor
    * @return a set of sub-procedures or null if there is nothing else to execute.
    * @throws ProcedureYieldException the procedure will be added back to the queue and retried later
@@ -487,6 +494,7 @@ public abstract class Procedure<TEnvironment> implements Comparable<Procedure> {
   /**
    * Internal method called by the ProcedureExecutor that starts the
    * user-level code execute().
+   * ProcedureExecutor 调用的内部方法，调用用户的逻辑 execute
    * @param env the environment passed to the ProcedureExecutor
    * @return a set of sub-procedures or null if there is nothing else to execute.
    * @throws ProcedureYieldException the procedure will be added back to the queue and retried later

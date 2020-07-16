@@ -40,6 +40,7 @@ import com.google.common.collect.MapMaker;
 
 /**
  * This is the master side of a distributed complex procedure execution.
+ * Master 端负责 Procedure 的执行。
  * <p>
  * The {@link Procedure} is generic and subclassing or customization shouldn't be
  * necessary -- any customization should happen just in {@link Subprocedure}s.
@@ -58,6 +59,7 @@ public class ProcedureCoordinator {
   private final long timeoutMillis;
 
   // Running procedure table.  Maps procedure name to running procedure reference
+  // 运行中的 procedure map，从 procedure name 到运行中的 procedure 的映射。
   private final ConcurrentMap<String, Procedure> procedures =
       new MapMaker().concurrencyLevel(4).weakValues().makeMap();
 

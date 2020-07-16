@@ -35,6 +35,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 
 /**
  * ZooKeeper based {@link ProcedureCoordinatorRpcs} for a {@link ProcedureCoordinator}
+ * 基于 ZK 实现的 ProcedureCoordinator
  */
 @InterfaceAudience.Private
 public class ZKProcedureCoordinatorRpcs implements ProcedureCoordinatorRpcs {
@@ -77,6 +78,7 @@ public class ZKProcedureCoordinatorRpcs implements ProcedureCoordinatorRpcs {
     // start watching for the abort node
     String abortNode = zkProc.getAbortZNode(procName);
     try {
+      // 检查/hbase/pt/abort/{procedureName}是否存在，存在则表明放弃procedureName这个procedure。
       // check to see if the abort node already exists
       if (ZKUtil.watchAndCheckExists(zkProc.getWatcher(), abortNode)) {
         abort(abortNode);
@@ -88,18 +90,24 @@ public class ZKProcedureCoordinatorRpcs implements ProcedureCoordinatorRpcs {
       throw new IOException("Failed while watching abort node:" + abortNode, e);
     }
 
+    // node: /hbase/pt/acquired/{procedureName}
     // create the acquire barrier
     String acquire = zkProc.getAcquiredBarrierNode(procName);
     LOG.debug("Creating acquire znode:" + acquire);
     try {
       // notify all the procedure listeners to look for the acquire node
       byte[] data = ProtobufUtil.prependPBMagic(info);
+      // 在zk上创建/hbase/pt/acquired/{procedureName}节点
+      // 后面在说subprocedure会提到，subprocedure会监控这个节点判断是不是一个新的procedure启动了，一旦监控到这个节点参与者就进入prepare阶段
       ZKUtil.createWithParents(zkProc.getWatcher(), acquire, data);
       // loop through all the children of the acquire phase and watch for them
       for (String node : nodeNames) {
+        // znode : /hbase/pt/acquired/{procedureName}/{memberName}
         String znode = ZKUtil.joinZNode(acquire, node);
         LOG.debug("Watching for acquire node:" + znode);
+        // 检查/hbase/pt/acquired/{procedureName}/{memberName}是否存在，一旦存在表明memberName这个参与者完成prepare。
         if (ZKUtil.watchAndCheckExists(zkProc.getWatcher(), znode)) {
+          //通知一个member完成prepare
           coordinator.memberAcquiredBarrier(procName, node);
         }
       }
@@ -169,6 +177,7 @@ public class ZKProcedureCoordinatorRpcs implements ProcedureCoordinatorRpcs {
 
   /**
    * Start monitoring znodes in ZK - subclass hook to start monitoring znodes they are about.
+   * 开始监视 ZK 上的节点。
    * @return true if succeed, false if encountered initialization errors.
    */
   final public boolean start(final ProcedureCoordinator coordinator) {
@@ -179,16 +188,30 @@ public class ZKProcedureCoordinatorRpcs implements ProcedureCoordinatorRpcs {
     this.coordinator = coordinator;
 
     try {
+        /**
+        假设procedureType是pt， ZKProcedureUtil构造函数会在zk上创建下面三个node：
+          1. acquiredZnode : /hbase/pt/acquired
+          2. reachedZnode: /hbase/pt/reached
+          3. abortZnode: /hbase/pt/abort
+        所以基于zk的实现的2PC是通过node的改变来通知所有参与者当前处在哪一个阶段。
+      */ 
       this.zkProc = new ZKProcedureUtil(watcher, procedureType) {
+        // nodeCreated方法会在zk上新的node创建时回调
         @Override
         public void nodeCreated(String path) {
+          //判断一下node的路径是不是/hbase/pt,不是的话表示node改变和当前procedure没关系
           if (!isInProcedurePath(path)) return;
           LOG.debug("Node created: " + path);
           logZKTree(this.baseZNode);
+          // 判断新建的node是不是符合路径/hbase/pt/acquired/{procedureName}/{memberName}. 
+          // 关于procedureName，每一个procedure调用都会有一个新的名称.  memberName即参与者名称。
+          // 这个路径的创建表明有一个参与者完成prepare阶段。后面讲到参与者部分时会提到参与者完成prepare后会创建这个路径。
           if (isAcquiredPathNode(path)) {
+            // 通知一下一个参与者完成prepare，毕竟Procedure 还阻塞在acquiredBarrierLatch上等待参与者都完成prepare阶段。
             // node wasn't present when we created the watch so zk event triggers acquire
             coordinator.memberAcquiredBarrier(ZKUtil.getNodeName(ZKUtil.getParent(path)),
               ZKUtil.getNodeName(path));
+            // 和上面的if类似，判断新建的node符不符合/hbase/pt/reached/{procedureName}/{memberName}. 符合表明一个参与者完成commit阶段。
           } else if (isReachedPathNode(path)) {
             // node was absent when we created the watch so zk event triggers the finished barrier.
 
@@ -197,6 +220,7 @@ public class ZKProcedureCoordinatorRpcs implements ProcedureCoordinatorRpcs {
             String member = ZKUtil.getNodeName(path);
             // get the data from the procedure member
             try {
+              // 前面说到Subprocedure # insideBarrier会有返回值，这个返回值被设置成node的data，此处解析出返回值。
               byte[] dataFromMember = ZKUtil.getData(watcher, path);
               // ProtobufUtil.isPBMagicPrefix will check null
               if (dataFromMember != null && dataFromMember.length > 0) {
@@ -210,6 +234,7 @@ public class ZKProcedureCoordinatorRpcs implements ProcedureCoordinatorRpcs {
                     dataFromMember.length);
                   LOG.debug("Finished data from procedure '" + procName
                     + "' member '" + member + "': " + new String(dataFromMember));
+                  // 通知一个参与者完成commit，此时Procedure阻塞在releasedBarrierLatch等待所有参与者完成commit。
                   coordinator.memberFinishedBarrier(procName, member, dataFromMember);
                 }
               } else {

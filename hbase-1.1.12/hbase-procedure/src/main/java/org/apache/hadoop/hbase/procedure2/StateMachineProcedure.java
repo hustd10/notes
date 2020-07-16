@@ -29,14 +29,19 @@ import org.apache.hadoop.hbase.protobuf.generated.ProcedureProtos.StateMachinePr
 
 /**
  * Procedure described by a series of steps.
+ * 由一系列步骤组成的 Procedure。
  *
  * The procedure implementor must have an enum of 'states', describing
  * the various step of the procedure.
+ * Procedure 的实现必须包含一个状态的枚举，描述 procedure 的多个步骤。
  * Once the procedure is running, the procedure-framework will call executeFromState()
  * using the 'state' provided by the user. The first call to executeFromState()
  * will be performed with 'state = null'. The implementor can jump between
  * states using setNextState(MyStateEnum.ordinal()).
+ * 应当Procedure开始运行，框架会调用 executeFromState，使用由用户提供的状态。第一次调用会传递 state = null，
+ * 实现可以使用 setNextState 在状态间跳转。
  * The rollback will call rollbackState() for each state that was executed, in reverse order.
+ * 回滚可以逆序对每个执行过的状态调用rollbackState。
  */
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
@@ -52,6 +57,7 @@ public abstract class StateMachineProcedure<TEnvironment, TState>
 
   /**
    * called to perform a single step of the specified 'state' of the procedure
+   * 执行 Procedure 指定的状态
    * @param state state to execute
    * @return Flow.NO_MORE_STATE if the procedure is completed,
    *         Flow.HAS_MORE_STATE if there is another step.
@@ -83,6 +89,7 @@ public abstract class StateMachineProcedure<TEnvironment, TState>
 
   /**
    * Return the initial state object that will be used for the first call to executeFromState().
+   * 返回用来调用 executeFromState 时第一次传递状态
    * @return the initial state enum object
    */
   protected abstract TState getInitialState();
@@ -95,6 +102,7 @@ public abstract class StateMachineProcedure<TEnvironment, TState>
     setNextState(getStateId(state));
   }
 
+  // 
   @Override
   protected Procedure[] execute(final TEnvironment env)
       throws ProcedureYieldException {
@@ -104,10 +112,13 @@ public abstract class StateMachineProcedure<TEnvironment, TState>
       if (stateCount == 0) {
         setNextState(getStateId(state));
       }
+      // 如果没有更多状态，则表示执行完成
       if (executeFromState(env, state) == Flow.NO_MORE_STATE) {
         // completed
         return null;
       }
+      // 这里要注意的是，返回的是 this，应为这个 Procedure 是一个状态机，有的是状态的流转，
+      // 但是还是一个 Procedure 对象
       return (isWaiting() || isFailed()) ? null : new Procedure[] {this};
     } finally {
       updateTimestamp();

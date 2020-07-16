@@ -31,8 +31,11 @@ import org.apache.hadoop.hbase.protobuf.generated.ProcedureProtos.ProcedureState
  * Internal state of the ProcedureExecutor that describes the state of a "Root Procedure".
  * A "Root Procedure" is a Procedure without parent, each subprocedure will be
  * added to the "Root Procedure" stack (or rollback-stack).
+ * ProcedureExecutor 中用来描述 RootProcedure 的内部状态。
+ * Root Procedure 是没有父Procedure的 Procedure，每个 SubProcedure会被加入到 RootProcedure 的stack中。
  *
  * RootProcedureState is used and managed only by the ProcedureExecutor.
+ * RootProcedureState 只被ProcedureExecutor使用和管理
  *    Long rootProcId = getRootProcedureId(proc);
  *    rollbackStack.get(rootProcId).acquire(proc)
  *    rollbackStack.get(rootProcId).release(proc)

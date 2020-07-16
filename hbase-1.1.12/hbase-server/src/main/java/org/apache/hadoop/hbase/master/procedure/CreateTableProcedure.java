@@ -302,6 +302,8 @@ public class CreateTableProcedure
     return true;
   }
 
+  // 检查 quota （最大表数目，region数目等）
+  
   private void preCreate(final MasterProcedureEnv env)
       throws IOException, InterruptedException {
     if (!getTableName().isSystemTable()) {

@@ -64,6 +64,7 @@ public final class MasterProcedureUtil {
   /**
    * Helper Runnable used in conjunction with submitProcedure() to deal with
    * submitting procs with nonce.
+   * 和 submitProcedure() 同时使用，里面封装的代码只能执行一次
    * See submitProcedure() for an example.
    */
   public static abstract class NonceProcedureRunnable {

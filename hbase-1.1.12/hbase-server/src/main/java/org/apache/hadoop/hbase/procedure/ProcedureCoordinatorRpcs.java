@@ -27,6 +27,7 @@ import org.apache.hadoop.hbase.errorhandling.ForeignException;
 /**
  * RPCs for the coordinator to run a barriered procedure with subprocedures executed at
  * distributed members.
+ * ProcedureCoordinator 的 RPC 调用。
  * @see ProcedureCoordinator
  */
 @InterfaceAudience.Private

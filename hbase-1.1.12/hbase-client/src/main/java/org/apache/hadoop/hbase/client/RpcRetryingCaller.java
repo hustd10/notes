@@ -116,6 +116,7 @@ public class RpcRetryingCaller<T> {
 
   /**
    * Retries if invocation fails.
+   * 如果调用失败，重试
    * @param callTimeout Timeout for this call
    * @param callable The {@link RetryingCallable} to run.
    * @return an object of type T

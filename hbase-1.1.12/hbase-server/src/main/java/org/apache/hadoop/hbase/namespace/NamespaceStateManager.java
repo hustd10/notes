@@ -41,6 +41,7 @@ import org.apache.zookeeper.data.Stat;
 /**
  * NamespaceStateManager manages state (in terms of quota) of all the namespaces. It contains a
  * cache which is updated based on the hooks in the NamespaceAuditor class.
+ * 管理所有 namespace 的状态，包含一个cache
  */
 @InterfaceAudience.Private
 class NamespaceStateManager extends ZooKeeperListener {
@@ -145,6 +146,8 @@ class NamespaceStateManager extends ZooKeeperListener {
     }
   }
 
+  // table：表名
+  // numRegions：region 的数目
   synchronized void checkAndUpdateNamespaceTableCount(TableName table, int numRegions)
       throws IOException {
     String namespace = table.getNamespaceAsString();
@@ -152,12 +155,14 @@ class NamespaceStateManager extends ZooKeeperListener {
     if (nspdesc != null) {
       NamespaceTableAndRegionInfo currentStatus;
       currentStatus = getState(nspdesc.getName());
+      // 是否超过 namespace 下的最大 table 数目
       if ((currentStatus.getTables().size()) >= TableNamespaceManager.getMaxTables(nspdesc)) {
         throw new QuotaExceededException("The table " + table.getNameAsString()
             + " cannot be created as it would exceed maximum number of tables allowed "
             + " in the namespace.  The total number of tables permitted is "
             + TableNamespaceManager.getMaxTables(nspdesc));
       }
+      // 超过最大 region 数目
       if ((currentStatus.getRegionCount() + numRegions) > TableNamespaceManager
           .getMaxRegions(nspdesc)) {
         throw new QuotaExceededException("The table " + table.getNameAsString()

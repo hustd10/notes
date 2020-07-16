@@ -41,6 +41,7 @@ import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
  * provide the admin operations to interact with the quota table. TODO: FUTURE: The master will be
  * responsible to notify each RS of quota changes and it will do the "quota aggregation" when the
  * QuotaScope is CLUSTER.
+ * 第一次运行时初始化 quota table。
  */
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
@@ -322,6 +323,7 @@ public class MasterQuotaManager implements RegionStateListener {
     quotaOps.postApply(quotas);
   }
 
+  // 检查表的命名空间和region 的quota
   public void checkNamespaceTableAndRegionQuota(TableName tName, int regions) throws IOException {
     if (initialized) {
       namespaceQuotaManager.checkQuotaToCreateTable(tName, regions);

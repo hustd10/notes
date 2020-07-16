@@ -272,6 +272,7 @@ public class HTableDescriptor implements WritableComparable<HTableDescriptor> {
 
   /**
    * Maps column family name to the respective HColumnDescriptors
+   * 保存该 Table 的所有列簇信息，映射 列簇名 ——> HColumnDescriptor
    */
   private final Map<byte [], HColumnDescriptor> families =
     new TreeMap<byte [], HColumnDescriptor>(Bytes.BYTES_RAWCOMPARATOR);

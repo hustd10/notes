@@ -1501,6 +1501,7 @@ public class HMaster extends HRegionServer implements MasterServices, Server {
     checkInitialized();
     sanityCheckTableDescriptor(hTableDescriptor);
 
+    // 如果启用了 Procedure V2, 则使用 V2
     if (isMasterProcedureExecutorEnabled()) {
       return MasterProcedureUtil.submitProcedure(
         new MasterProcedureUtil.NonceProcedureRunnable(this, nonceGroup, nonce) {

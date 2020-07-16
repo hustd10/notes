@@ -63,6 +63,9 @@ import com.google.common.base.Preconditions;
  * Thread Pool that executes the submitted procedures.
  * The executor has a ProcedureStore associated.
  * Each operation is logged and on restart the pending procedures are resumed.
+ * 执行提交的 Procedure 的线程池
+ * Executor 有一个关联的 ProcedureStore。
+ * 每个操作都被日志记录下来，并且重启的时候，pending 的 Procedure 都会被恢复。
  *
  * Unless the Procedure code throws an error (e.g. invalid user input)
  * the procedure will complete (at some point in time), On restart the pending
@@ -141,6 +144,7 @@ public class ProcedureExecutor<TEnvironment> {
     private static final int DEFAULT_ACKED_EVICT_TTL = 5 * 60000; // 5min
 
     private final Map<Long, ProcedureInfo> completed;
+    // nonceKey -> procId 的映射
     private final Map<NonceKey, Long> nonceKeysToProcIdsMap;
     private final ProcedureStore store;
     private final Configuration conf;
@@ -228,6 +232,8 @@ public class ProcedureExecutor<TEnvironment> {
    * Map the the procId returned by submitProcedure(), the Root-ProcID, to the RootProcedureState.
    * The RootProcedureState contains the execution stack of the Root-Procedure,
    * It is added to the map by submitProcedure() and removed on procedure completion.
+   * procId 到 RootProcedureState 的映射，RootProcedureState 包含RootProcedure的执行状态
+   * 由 submitProcedure 添加到这个 map 中，在Procedure 完成时移除。
    */
   private final ConcurrentHashMap<Long, RootProcedureState> rollbackStack =
     new ConcurrentHashMap<Long, RootProcedureState>();
@@ -255,6 +261,7 @@ public class ProcedureExecutor<TEnvironment> {
 
   /**
    * Queue that contains runnable procedures.
+   * 保存 runnable Procedure 的队列
    */
   private final ProcedureRunnableSet runnables;
 
@@ -661,6 +668,7 @@ public class ProcedureExecutor<TEnvironment> {
   // ==========================================================================
   /**
    * Add a new root-procedure to the executor.
+   * 向线程池中添加一个 Procedure
    * @param proc the new procedure to execute.
    * @return the procedure id, that can be used to monitor the operation
    */
@@ -670,8 +678,10 @@ public class ProcedureExecutor<TEnvironment> {
 
   /**
    * Add a new root-procedure to the executor.
+   * 
    * @param proc the new procedure to execute.
    * @param nonceKey the registered unique identifier for this operation from the client or process.
+   *        Procedure 的唯一 key。
    * @return the procedure id, that can be used to monitor the operation
    */
   @edu.umd.cs.findbugs.annotations.SuppressWarnings(value="NP_NULL_ON_SOME_PATH",
@@ -702,12 +712,14 @@ public class ProcedureExecutor<TEnvironment> {
     }
 
     // Create the rollback stack for the procedure
+    // 给这个 Procedure 创建一个 stack
     RootProcedureState stack = new RootProcedureState();
     rollbackStack.put(currentProcId, stack);
 
     // Submit the new subprocedures
     assert !procedures.containsKey(currentProcId);
     procedures.put(currentProcId, proc);
+    // 通知 Listener 该 Procedure 已经被添加
     sendProcedureAddedNotification(currentProcId);
     runnables.addBack(proc);
     return currentProcId;
@@ -832,12 +844,14 @@ public class ProcedureExecutor<TEnvironment> {
    */
   private void execLoop() {
     while (isRunning()) {
+      // 从队列里面取出一个 Procedure
       Long procId = runnables.poll();
       Procedure proc = procId != null ? procedures.get(procId) : null;
       if (proc == null) continue;
 
       try {
         activeExecutorCount.incrementAndGet();
+        // 执行该 Procedure
         execLoop(proc);
       } finally {
         activeExecutorCount.decrementAndGet();
@@ -1059,6 +1073,10 @@ public class ProcedureExecutor<TEnvironment> {
 
   /**
    * Executes the specified procedure
+   * 执行一个 Procedure
+   * 调用 Procedure 的 doExecute 方法，如果 Procedure 执行没有失败，并且返回 subprocedure，
+   * 那么 subprocedure 会被初始化，持久化，添加到 runnable 队列，Procedure 变为 WAITING 状态，等待 subprocedure 完成。
+   * 如果没有 subprocedure，则该 Procedure 成功执行，如果有 Parent，parent 的状态会被设置为 RUNNABLE。
    *  - calls the doExecute() of the procedure
    *  - if the procedure execution didn't fail (e.g. invalid user input)
    *     - ...and returned subprocedures
@@ -1083,6 +1101,7 @@ public class ProcedureExecutor<TEnvironment> {
     do {
       reExecute = false;
       try {
+        // 调用 Procedure 的 doExecute 方法
         subprocs = procedure.doExecute(getEnvironment());
         if (subprocs != null && subprocs.length == 0) {
           subprocs = null;
@@ -1091,6 +1110,7 @@ public class ProcedureExecutor<TEnvironment> {
         if (LOG.isTraceEnabled()) {
           LOG.trace("Yield procedure: " + procedure);
         }
+        // 等待以后再执行
         runnables.yield(procedure);
         return;
       } catch (Throwable e) {
@@ -1100,7 +1120,7 @@ public class ProcedureExecutor<TEnvironment> {
         procedure.setFailure(new RemoteProcedureException(msg, e));
       }
 
-      if (!procedure.isFailed()) {
+      if (!procedure.isFailed()) { // 如果 Procedure 没有失败
         if (subprocs != null) {
           if (subprocs.length == 1 && subprocs[0] == procedure) {
             // quick-shortcut for a state machine like procedure
@@ -1127,6 +1147,7 @@ public class ProcedureExecutor<TEnvironment> {
               procedure.setChildrenLatch(subprocs.length);
               switch (procedure.getState()) {
                 case RUNNABLE:
+                  // procedure 状态由 RUNNABLE 变为 WAITING
                   procedure.setState(ProcedureState.WAITING);
                   break;
                 case WAITING_TIMEOUT:
@@ -1138,6 +1159,7 @@ public class ProcedureExecutor<TEnvironment> {
             }
           }
         } else if (procedure.getState() == ProcedureState.WAITING_TIMEOUT) {
+          // 等待 subprocedure 执行超时
           waitingTimeout.add(procedure);
         } else {
           // No subtask, so we are done
@@ -1163,6 +1185,7 @@ public class ProcedureExecutor<TEnvironment> {
         if (LOG.isTraceEnabled()) {
           LOG.trace("Store add " + procedure + " children " + Arrays.toString(subprocs));
         }
+        // 保存 subprocedure
         store.insert(procedure, subprocs);
       } else {
         if (LOG.isTraceEnabled()) {
@@ -1180,6 +1203,7 @@ public class ProcedureExecutor<TEnvironment> {
     } while (reExecute);
 
     // Submit the new subprocedures
+    // 提交新的 subprocedure
     if (subprocs != null && !procedure.isFailed()) {
       for (int i = 0; i < subprocs.length; ++i) {
         Procedure subproc = subprocs[i];
